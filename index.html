@@ -35,20 +35,10 @@
     <!-- MAIN — tab buttons + swappable content area -->
     <main class="main-container" id="main">
 
-      <!-- Tab buttons — always visible, images act as the buttons -->
-      <div class="tab-bar" id="tab-bar">
-        <button class="tab-btn" id="btn-music" aria-label="View music">
-          <img src="website-images/cowpatch-music.png" alt="Music logo">
-          <span>music</span>
-        </button>
-        <button class="tab-btn" id="btn-photos" aria-label="View photos">
-          <img src="website-images/cowpatch-photos.png" alt="Photos logo">
-          <span>photos</span>
-        </button>
-        <button class="tab-btn" id="btn-games" aria-label="View games">
-          <img src="website-images/cowpatch-games.png" alt="Games logo">
-          <span>games</span>
-        </button>
+      <!-- Tab buttons — text links -->      <div class="tab-bar" id="tab-bar">
+        <button class="tab-btn" id="btn-music">music.</button>
+        <button class="tab-btn" id="btn-photos">photos.</button>
+        <button class="tab-btn" id="btn-games">games.</button>
       </div>
 
       <!-- Swappable content — hidden until a tab is clicked -->
@@ -60,6 +50,14 @@
     <footer class="site-footer">
       Copyright &copy; Cowpatch Media 2026
     </footer>
+
+    <!-- MODULE OVERLAY (music / photos / games) -->
+    <div class="module-overlay" id="module-overlay" role="dialog" aria-modal="true" hidden>
+      <div class="module-modal">
+        <button class="module-close" id="module-close" aria-label="Close">&times;</button>
+        <div class="module-content" id="module-content"></div>
+      </div>
+    </div>
 
     <!-- RESUME MODAL OVERLAY -->
     <div class="resume-overlay" id="resume-overlay" role="dialog" aria-modal="true" aria-label="Resume" hidden>

@@ -5,16 +5,19 @@
   'use strict';
 
   // ── Element references ─────────────────────────────────────────
-  const homeBtn       = document.getElementById('home-btn');
-  const resumeBtn     = document.getElementById('resume-btn');
-  const resumeOverlay = document.getElementById('resume-overlay');
-  const resumeClose   = document.getElementById('resume-close');
-  const resumeWrap    = document.getElementById('resume-frame-wrap');
-  const tabBar        = document.getElementById('tab-bar');
-  const contentArea   = document.getElementById('content-area');
-  const btnMusic      = document.getElementById('btn-music');
-  const btnPhotos     = document.getElementById('btn-photos');
-  const btnGames      = document.getElementById('btn-games');
+  const homeBtn        = document.getElementById('home-btn');
+  const resumeBtn      = document.getElementById('resume-btn');
+  const resumeOverlay  = document.getElementById('resume-overlay');
+  const resumeClose    = document.getElementById('resume-close');
+  const resumeWrap     = document.getElementById('resume-frame-wrap');
+  const moduleOverlay  = document.getElementById('module-overlay');
+  const moduleContent  = document.getElementById('module-content');
+  const moduleClose    = document.getElementById('module-close');
+  const tabBar         = document.getElementById('tab-bar');
+  const contentArea    = document.getElementById('content-area');
+  const btnMusic       = document.getElementById('btn-music');
+  const btnPhotos      = document.getElementById('btn-photos');
+  const btnGames       = document.getElementById('btn-games');
 
   // ── Lazy-load flags (each embed loads only once per session) ───
   let resumeLoaded  = false;
@@ -28,40 +31,33 @@
   }
 
   /**
-   * Show the content area with new HTML, hide the tab bar.
-   * Passes optional postInsert callback for widgets that need
-   * the element to be in the DOM before initialising.
+   * Open the module overlay with the provided HTML.
+   * postInsert runs after HTML is in the DOM (needed for Behold).
    */
-  function showContent(html, activeBtn, postInsert) {
-    clearActive();
-
-    contentArea.innerHTML = html;
-    contentArea.removeAttribute('hidden');
-
-    // Hide the tab bar — widget takes over the full container
-    tabBar.setAttribute('hidden', '');
-
-    // Scroll main into view smoothly
-    document.getElementById('main').scrollIntoView({ behavior: 'smooth' });
-
+  function openModule(html, postInsert) {
+    moduleContent.innerHTML = html;
+    moduleOverlay.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
     if (typeof postInsert === 'function') postInsert();
   }
 
-  /** Reset: hide content area, show tab bar, clear active buttons */
-  function showDefault() {
-    clearActive();
-    contentArea.innerHTML = '';
-    contentArea.setAttribute('hidden', '');
-
-    // Restore the tab bar
-    tabBar.removeAttribute('hidden');
-
-    tabBar.scrollIntoView({ behavior: 'smooth' });
+  /**
+   * Close the module overlay and clear its content.
+   * skipScroll = true when called by scroll/observer so we don't
+   * fight the user's manual scroll direction.
+   */
+  function closeModule(skipScroll = false) {
+    moduleOverlay.setAttribute('hidden', '');
+    moduleContent.innerHTML = '';
+    document.body.style.overflow = '';
+    if (!skipScroll) {
+      document.getElementById('main').scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
-  // ── Tab: Music ─────────────────────────────────────────────────
+  // ── Tab: Music ─────────────────────────────────────────────────────
   function showMusic() {
-    const html = `
+    openModule(`
       <div class="embed-wrap">
         <iframe
           width="100%" height="300"
@@ -73,38 +69,35 @@
         <a href="https://soundcloud.com/cowpatch-media" target="_blank" rel="noopener">Cowpatch Media</a>
         &middot;
         <a href="https://soundcloud.com/cowpatch-media/sets/concrete-echoes-ep" target="_blank" rel="noopener">MC Cowpatch: Concrete Echoes EP</a>
-      </p>`;
-    showContent(html, btnMusic);
+      </p>`);
   }
 
-  // ── Tab: Photos ────────────────────────────────────────────────
+  // ── Tab: Photos ────────────────────────────────────────────────────
   function showPhotos() {
-    const html = `<div class="photos-wrap"><behold-widget feed-id="BsmxDO1yIIL1zPsolSGb"></behold-widget></div>`;
-
-    showContent(html, btnPhotos, () => {
-      // Lazy-load Behold widget script only once
-      if (!beholdLoaded) {
-        const s = document.createElement('script');
-        s.type = 'module';
-        s.src  = 'https://w.behold.so/widget.js';
-        document.head.appendChild(s);
-        beholdLoaded = true;
+    openModule(
+      `<div class="photos-wrap"><behold-widget feed-id="BsmxDO1yIIL1zPsolSGb"></behold-widget></div>`,
+      () => {
+        if (!beholdLoaded) {
+          const s = document.createElement('script');
+          s.type = 'module';
+          s.src  = 'https://w.behold.so/widget.js';
+          document.head.appendChild(s);
+          beholdLoaded = true;
+        }
       }
-    });
+    );
   }
 
-  // ── Tab: Games ─────────────────────────────────────────────────
+  // ── Tab: Games ────────────────────────────────────────────────────
   function showGames() {
-    const html = `
+    openModule(`
       <div class="game-wrap">
         <iframe
           src="game/dicegolfv2.html"
-          width="640" height="480"
           allowfullscreen
           title="Dice Golf v2">
         </iframe>
-      </div>`;
-    showContent(html, btnGames);
+      </div>`);
   }
 
   // ── Resume Modal ───────────────────────────────────────────────
@@ -128,25 +121,48 @@
     document.body.style.overflow = '';
   }
 
-  // ── Event Listeners ────────────────────────────────────────────
+  // ── Scroll-up reset: close module when hero comes back into view ───
+  const hero = document.getElementById('hero');
+  new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && !moduleOverlay.hidden) {
+        closeModule(true);
+      }
+    },
+    { threshold: 0.3 }
+  ).observe(hero);
+
+  // ── Event Listeners ──────────────────────────────────────────────
   homeBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    showDefault();
+    closeModule();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
-  resumeBtn.addEventListener('click', (e) => { e.preventDefault(); openResume(); });
+  moduleClose.addEventListener('click', () => closeModule());
+
+  resumeBtn.addEventListener('click',  (e) => { e.preventDefault(); openResume(); });
   resumeClose.addEventListener('click', closeResume);
 
-  // Close modal on backdrop click
+  // Backdrop click closes resume
   resumeOverlay.addEventListener('click', (e) => {
     if (e.target === resumeOverlay) closeResume();
   });
 
-  // Close modal on Escape key
+  // Escape closes whichever overlay is open
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !resumeOverlay.hidden) closeResume();
+    if (e.key !== 'Escape') return;
+    if (!resumeOverlay.hidden)      closeResume();
+    else if (!moduleOverlay.hidden) closeModule(true);
   });
+
+  // ── About ───────────────────────────────────────────────────
+  function showAbout() {
+    openModule(`<p class="about-message">a seattle based professional using this website to explore creative projects.</p>`);
+  }
+
+  const aboutBtn = document.getElementById('about-btn');
+  if (aboutBtn) aboutBtn.addEventListener('click', (e) => { e.preventDefault(); showAbout(); });
 
   btnMusic.addEventListener('click',  showMusic);
   btnPhotos.addEventListener('click', showPhotos);
