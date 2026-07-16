@@ -93,7 +93,7 @@
     openModule(`
       <div class="game-wrap">
         <iframe
-          src="game/dicegolfv2.html"
+          src="game/dicegolfv3.html"
           allowfullscreen
           title="Dice Golf v2">
         </iframe>
