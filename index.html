@@ -1,74 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Header of the Website and basic readability changes. Copied from 
-     flex foundations excercise 7. -->
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cowpatch Media</title>
-    <link rel="stylesheet" type="text/css" href="stylesheets/modern-normalize.css">
-    <link rel="stylesheet" type="text/css" href="stylesheets/styles.css">
+    <!-- Google Fonts: Roboto (was missing before) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="stylesheets/modern-normalize.css">
+    <link rel="stylesheet" href="stylesheets/styles.css">
   </head>
   <body>
-    <!-- Body of the website. Split into a header, main container and 
-     footer. Main container will have subsections. -->
-    <div class="header">
-      <!-- In the header I am going to only put the header logo and internal
-       links.-->
-      <a href="#">cowpatch media</a>
-      <div class="sidebar">
-        <!-- I am going to use an unordered list similar to the earlier
-         excercises for internal website links. -->
-        <ul>
-          <li><a href="#">about me</a></li>
-          <li><a href="#">resume</a></li>
-        </ul>
-      </div>  
-    </div>
-    <div class="main-container">
-      <!-- I am splitting the main container into 2 seperate sections. These
-       sections will be the upper-text and middle icon buttons. -->
-        <div class="upper-text">
-          <div class="upper-text-words">
-            <div class="upper-text-hero">
-              exploring the world through multimedia projects.
-            </div>
-          </div>
-        </div>
-        <div class="middle-links-text-parent">  
-          <div class ="middle-links-text">
-            creative links:
-          </div>
-        </div>
-        <div class="middle-pictures">
-          <div class="music-image">
-            <img src="website-images/cowpatch-music.png" alt="Small music logo">
-            <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/soundcloud%253Aplaylists%253A2205460061&color=%23548f59&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe><div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;"><a href="https://soundcloud.com/cowpatch-media" title="Cowpatch Media" target="_blank" style="color: #cccccc; text-decoration: none;">Cowpatch Media</a> · <a href="https://soundcloud.com/cowpatch-media/sets/concrete-echoes-ep" title="MC Cowpatch: Concrete Echoes EP" target="_blank" style="color: #cccccc; text-decoration: none;">MC Cowpatch: Concrete Echoes EP</a></div>
-          </div>
-          <div class="photo-image">
-            <img src="website-images/cowpatch-photos.png" alt="Small photo logo">
-            <behold-widget feed-id="BsmxDO1yIIL1zPsolSGb"></behold-widget>
 
-          </div>
-          <div class="gaming-image">
-            <img src="website-images/cowpatch-games.png" alt="Small game design logo">
-            <iframe 
-              src="game/dicegolfv2.html" 
-              width="640" 
-              height="480" 
-              frameborder="0" 
-              allowfullscreen>
-            </iframe>
-          </div>
-        </div>
-    <div class="footer">
-      <!-- Footer should be simple, see use of the HTML copyright 
-       symbol below. My first win of the project. -->
+    <!-- HEADER — sticky, always visible -->
+    <header class="site-header">
+      <a href="#" class="site-logo" id="home-btn">cowpatch media</a>
+      <nav class="site-nav">
+        <ul>
+          <li><a href="#" id="about-btn">about me</a></li>
+          <li><a href="#" id="resume-btn">resume</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- HERO — background photo + tagline -->
+    <section class="hero" id="hero">
+      <div class="hero-text">
+        <h1 class="hero-heading">exploring the world through multimedia projects.</h1>
+      </div>
+    </section>
+
+    <!-- MAIN — tab buttons + swappable content area -->
+    <main class="main-container" id="main">
+
+      <!-- Tab buttons — text links -->      <div class="tab-bar" id="tab-bar">
+        <button class="tab-btn" id="btn-music">music.</button>
+        <button class="tab-btn" id="btn-photos">photos.</button>
+        <button class="tab-btn" id="btn-games">games.</button>
+      </div>
+
+      <!-- Swappable content — hidden until a tab is clicked -->
+      <div class="content-area" id="content-area" hidden></div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
       Copyright &copy; Cowpatch Media 2026
+    </footer>
+
+    <!-- MODULE OVERLAY (music / photos / games) -->
+    <div class="module-overlay" id="module-overlay" role="dialog" aria-modal="true" hidden>
+      <div class="module-modal">
+        <button class="module-close" id="module-close" aria-label="Close">&times;</button>
+        <div class="module-content" id="module-content"></div>
+      </div>
+    </div>
+
+    <!-- RESUME MODAL OVERLAY -->
+    <div class="resume-overlay" id="resume-overlay" role="dialog" aria-modal="true" aria-label="Resume" hidden>
+      <div class="resume-modal">
+        <button class="resume-close" id="resume-close" aria-label="Close resume">&times;</button>
+        <div class="resume-frame-wrap" id="resume-frame-wrap"></div>
+      </div>
     </div>
 
     <script src="scripts/scripts.js"></script>
-
   </body>
 </html>
