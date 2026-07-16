@@ -62,13 +62,13 @@
         <iframe
           width="100%" height="300"
           scrolling="no" frameborder="no" allow="autoplay"
-          src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/soundcloud%253Aplaylists%253A2205460061&color=%23548f59&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true">
+          src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/cowpatch-media/sets/free-air-ep&color=%23548f59&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true">
         </iframe>
       </div>
       <p class="sc-credit">
-        <a href="https://soundcloud.com/cowpatch-media" target="_blank" rel="noopener">Cowpatch Media</a>
+        <a href="https://soundcloud.com/cowpatch-media?utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing" target="_blank" rel="noopener">Cowpatch Media</a>
         &middot;
-        <a href="https://soundcloud.com/cowpatch-media/sets/concrete-echoes-ep" target="_blank" rel="noopener">MC Cowpatch: Concrete Echoes EP</a>
+        <a href="https://soundcloud.com/cowpatch-media/sets/free-air-ep?si=9015a42f37b64b00b3bfc8eb6af1af8e&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing" target="_blank" rel="noopener">MC Cowpatch: Free Air EP</a>
       </p>`);
   }
 
