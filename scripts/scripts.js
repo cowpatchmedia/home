@@ -106,8 +106,8 @@
     if (!resumeLoaded) {
       const iframe = document.createElement('iframe');
       // URL-encode the filename to handle the spaces
-      iframe.src   = 'website-images/cowpatch-resume.pdf';
-      iframe.title = 'Cowpatch Media Resume';
+      iframe.src   = 'website-images/resume2026.pdf';
+      iframe.title = 'Resume';
       resumeWrap.appendChild(iframe);
       resumeLoaded = true;
     }
