@@ -18,6 +18,7 @@
   const btnMusic       = document.getElementById('btn-music');
   const btnPhotos      = document.getElementById('btn-photos');
   const btnGames       = document.getElementById('btn-games');
+  const btnSoccer      = document.getElementById('btn-soccer');
 
   // ── Lazy-load flags (each embed loads only once per session) ───
   let resumeLoaded  = false;
@@ -100,6 +101,43 @@
       </div>`);
   }
 
+  function showSoccer() {
+      openModule(`
+        <section class="soccer-wrap">
+          <header class="soccer-header">
+            <p class="soccer-eyebrow">DATA & ANALYSIS</p>
+            <h2>player comparison lab.</h2>
+            <p>
+              Exploring player performance through soccer data.
+            </p>
+          </header>
+
+          <div class="soccer-controls">
+            <label>
+              Player A
+              <select id="player-a"></select>
+            </label>
+
+            <label>
+              Player B
+              <select id="player-b"></select>
+            </label>
+          </div>
+
+          <div id="player-radar"></div>
+
+          <p id="player-lab-status" aria-live="polite">
+            Loading player data...
+          </p>
+
+          <p class="soccer-credit">
+            Data: StatsBomb Open Data.
+            See the source repository and attribution requirements.
+          </p>
+        </section>
+      `);
+  }
+
   // ── Resume Modal ───────────────────────────────────────────────
   function openResume() {
     // Lazy-load PDF iframe only on first open
@@ -167,5 +205,6 @@
   btnMusic.addEventListener('click',  showMusic);
   btnPhotos.addEventListener('click', showPhotos);
   btnGames.addEventListener('click',  showGames);
+  btnSoccer.addEventListener('click', showSoccer);
 
 })();
