@@ -176,59 +176,168 @@
       playerA.selectedIndex = 0;
       playerB.selectedIndex = 1;
 
-      const metrics = [
-        { key: 'goalsPer90', label: 'Goals / 90' },
-        { key: 'assistsPer90', label: 'Assists / 90' },
-        { key: 'shotsPer90', label: 'Shots / 90' },
-        { key: 'keyPassesPer90', label: 'Key passes / 90' },
-        { key: 'tacklesPer90', label: 'Tackles / 90' },
-        { key: 'interceptionsPer90', label: 'Interceptions / 90' }
-      ];
 
-      function makeTrace(player) {
-        const values = metrics.map(metric =>
-          Number(player[metric.key]) || 0
-        );
+    const metrics = [
+      // Attacking
+      {
+        key: 'goalsPer90',
+        label: 'Goals / 90',
+        category: 'Attacking',
+        max: 1.2,
+        decimals: 2
+      },
+      {
+        key: 'xGPer90',
+        label: 'xG / 90',
+        category: 'Attacking',
+        max: 0.7,
+        decimals: 2
+      },
+      {
+        key: 'xAPer90',
+        label: 'xA / 90',
+        category: 'Attacking',
+        max: 0.25,
+        decimals: 2
+      },
 
-        // Repeat the first value to close the radar shape.
-        return {
-          type: 'scatterpolar',
-          r: [...values, values[0]],
-          theta: [...metrics.map(metric => metric.label), metrics[0].label],
-          fill: 'toself',
-          name: `${player.name} (${player.team})`,
-          hovertemplate: '%{theta}: %{r:.2f}<extra>%{fullData.name}</extra>'
-        };
+      // Defending
+      {
+        key: 'tacklesPer90',
+        label: 'Tackles / 90',
+        category: 'Defending',
+        max: 5,
+        decimals: 2
+      },
+      {
+        key: 'interceptionsPer90',
+        label: 'Interceptions / 90',
+        category: 'Defending',
+        max: 3.5,
+        decimals: 2
+      },
+      {
+        key: 'ballRecoveriesPer90',
+        label: 'Ball recoveries / 90',
+        category: 'Defending',
+        max: 8.5,
+        decimals: 2
+      },
+
+      // Ball progression
+      {
+        key: 'passesPer90',
+        label: 'Passes / 90',
+        category: 'Ball progression',
+        max: 95,
+        decimals: 2
+      },
+      {
+        key: 'passCompletionPct',
+        label: 'Pass completion %',
+        category: 'Ball progression',
+        max: 100,
+        decimals: 1,
+        suffix: '%'
+      },
+      {
+        key: 'progressiveCarriesPer90',
+        label: 'Progressive carries / 90',
+        category: 'Ball progression',
+        max: 10,
+        decimals: 2
       }
+    ];
 
-      function updateChart() {
-        const selectedA = players.find(p => p.id === playerA.value);
-        const selectedB = players.find(p => p.id === playerB.value);
+    function makeTrace(player) {
+      const actualValues = metrics.map(metric => {
+        const value = Number(player[metric.key]);
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+      });
 
-        if (!selectedA || !selectedB) return;
+      // Convert each metric to its own fixed 0–100 visual scale.
+      // The underlying statistics remain unchanged.
+      const visualValues = actualValues.map((value, index) =>
+        Math.min((value / metrics[index].max) * 100, 100)
+      );
 
-        Plotly.react(
-          'player-radar',
-          [makeTrace(selectedA), makeTrace(selectedB)],
-          {
-            title: {
-              text: 'Player performance per 90 minutes',
-              font: { size: 16 }
-            },
-            showlegend: true,
-            legend: { orientation: 'h' },
-            margin: { t: 60, r: 45, b: 40, l: 45 },
-            autosize: true,
-            polar: {
-              radialaxis: {
-                visible: true,
-                rangemode: 'tozero'
-              }
+      const hoverDetails = actualValues.map((value, index) => {
+        const metric = metrics[index];
+        const formattedValue =
+          value.toFixed(metric.decimals) + (metric.suffix || '');
+
+        const aboveScale = value > metric.max
+          ? 'Above visual scale; position capped at 100'
+          : '';
+
+        return [
+          formattedValue,
+          metric.category,
+          aboveScale
+        ];
+      });
+
+      // Repeat the first point to close the radar shape.
+      return {
+        type: 'scatterpolar',
+        r: [...visualValues, visualValues[0]],
+        theta: [
+          ...metrics.map(metric => metric.label),
+          metrics[0].label
+        ],
+        customdata: [...hoverDetails, hoverDetails[0]],
+        fill: 'toself',
+        name: `${player.name} (${player.team})`,
+        hovertemplate:
+          '%{theta}<br>' +
+          'Actual value: %{customdata[0]}<br>' +
+          'Category: %{customdata[1]}<br>' +
+          '%{customdata[2]}' +
+          '<extra>%{fullData.name}</extra>'
+      };
+    }
+
+    function updateChart() {
+      const selectedA = players.find(p => p.id === playerA.value);
+      const selectedB = players.find(p => p.id === playerB.value);
+
+      if (!selectedA || !selectedB) return;
+
+      Plotly.react(
+        'player-radar',
+        [makeTrace(selectedA), makeTrace(selectedB)],
+        {
+          title: {
+            text: 'Player performance profiles',
+            font: { size: 16 }
+          },
+          showlegend: true,
+          legend: { orientation: 'h' },
+          margin: { t: 60, r: 65, b: 55, l: 65 },
+          autosize: true,
+          polar: {
+            radialaxis: {
+              visible: true,
+              range: [0, 100],
+              tickvals: [0, 25, 50, 75, 100],
+              ticktext: ['0', '25', '50', '75', '100']
             }
           },
-          { responsive: true }
-        );
-      }
+          annotations: [
+            {
+              text: 'Visual scale: 0–100 per metric · Hover for actual values',
+              x: 0.5,
+              y: -0.12,
+              xref: 'paper',
+              yref: 'paper',
+              showarrow: false,
+              font: { size: 11 }
+            }
+          ]
+        },
+        { responsive: true }
+      );
+    }
 
       playerA.addEventListener('change', updateChart);
       playerB.addEventListener('change', updateChart);
