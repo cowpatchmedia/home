@@ -101,41 +101,146 @@
       </div>`);
   }
 
+    // ── Tab: Soccer Analytics ──────────────────────────────────────
   function showSoccer() {
-      openModule(`
-        <section class="soccer-wrap">
-          <header class="soccer-header">
-            <p class="soccer-eyebrow">DATA & ANALYSIS</p>
-            <h2>player comparison lab.</h2>
-            <p>
-              Exploring player performance through soccer data.
-            </p>
-          </header>
+    openModule(`
+      <section class="soccer-wrap">
+        <header class="soccer-header">
+          <p class="soccer-eyebrow">DATA & ANALYSIS</p>
+          <h2>player comparison lab.</h2>
+          <p>Exploring player performance through soccer data.</p>
+        </header>
 
-          <div class="soccer-controls">
-            <label>
-              Player A
-              <select id="player-a"></select>
-            </label>
+        <div class="soccer-controls">
+          <label>
+            Player A
+            <select id="player-a"></select>
+          </label>
 
-            <label>
-              Player B
-              <select id="player-b"></select>
-            </label>
-          </div>
+          <label>
+            Player B
+            <select id="player-b"></select>
+          </label>
+        </div>
 
-          <div id="player-radar"></div>
+        <div id="player-radar"></div>
 
-          <p id="player-lab-status" aria-live="polite">
-            Loading player data...
-          </p>
+        <p id="player-lab-status" aria-live="polite">
+          Loading player data...
+        </p>
 
-          <p class="soccer-credit">
-            Data: StatsBomb Open Data.
-            See the source repository and attribution requirements.
-          </p>
-        </section>
-      `);
+        <p class="soccer-credit">
+          Data: StatsBomb Open Data.
+          See the source repository and attribution requirements.
+        </p>
+      </section>
+    `, loadSoccerData);
+  }
+
+  // Load the generated JSON file and set up the player comparison.
+  async function loadSoccerData() {
+    const playerA = document.getElementById('player-a');
+    const playerB = document.getElementById('player-b');
+    const status = document.getElementById('player-lab-status');
+
+    try {
+      if (typeof Plotly === 'undefined') {
+        throw new Error('Plotly did not load. Check your internet connection.');
+      }
+
+      const response = await fetch('data/player_stats.json');
+
+      if (!response.ok) {
+        throw new Error(`Could not load player data (HTTP ${response.status}).`);
+      }
+
+      const data = await response.json();
+
+      // Exclude unused substitutes from the comparison dropdowns.
+      const players = data.players
+        .filter(player => player.minutes > 0)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      if (players.length < 2) {
+        throw new Error('At least two players with recorded minutes are needed.');
+      }
+
+      // Use player ID as the option value; show team to distinguish players.
+      players.forEach(player => {
+        const label = `${player.name} — ${player.team}`;
+
+        playerA.add(new Option(label, player.id));
+        playerB.add(new Option(label, player.id));
+      });
+
+      playerA.selectedIndex = 0;
+      playerB.selectedIndex = 1;
+
+      const metrics = [
+        { key: 'goalsPer90', label: 'Goals / 90' },
+        { key: 'assistsPer90', label: 'Assists / 90' },
+        { key: 'shotsPer90', label: 'Shots / 90' },
+        { key: 'keyPassesPer90', label: 'Key passes / 90' },
+        { key: 'tacklesPer90', label: 'Tackles / 90' },
+        { key: 'interceptionsPer90', label: 'Interceptions / 90' }
+      ];
+
+      function makeTrace(player) {
+        const values = metrics.map(metric =>
+          Number(player[metric.key]) || 0
+        );
+
+        // Repeat the first value to close the radar shape.
+        return {
+          type: 'scatterpolar',
+          r: [...values, values[0]],
+          theta: [...metrics.map(metric => metric.label), metrics[0].label],
+          fill: 'toself',
+          name: `${player.name} (${player.team})`,
+          hovertemplate: '%{theta}: %{r:.2f}<extra>%{fullData.name}</extra>'
+        };
+      }
+
+      function updateChart() {
+        const selectedA = players.find(p => p.id === playerA.value);
+        const selectedB = players.find(p => p.id === playerB.value);
+
+        if (!selectedA || !selectedB) return;
+
+        Plotly.react(
+          'player-radar',
+          [makeTrace(selectedA), makeTrace(selectedB)],
+          {
+            title: {
+              text: 'Player performance per 90 minutes',
+              font: { size: 16 }
+            },
+            showlegend: true,
+            legend: { orientation: 'h' },
+            margin: { t: 60, r: 45, b: 40, l: 45 },
+            autosize: true,
+            polar: {
+              radialaxis: {
+                visible: true,
+                rangemode: 'tozero'
+              }
+            }
+          },
+          { responsive: true }
+        );
+      }
+
+      playerA.addEventListener('change', updateChart);
+      playerB.addEventListener('change', updateChart);
+
+      updateChart();
+
+      status.textContent =
+        `Loaded ${players.length} players from ${data.matchesProcessed} matches.`;
+    } catch (error) {
+      console.error('Soccer data error:', error);
+      status.textContent = `Unable to load player comparison: ${error.message}`;
+    }
   }
 
   // ── Resume Modal ───────────────────────────────────────────────
