@@ -179,74 +179,19 @@
 
     const metrics = [
       // Attacking
-      {
-        key: 'goalsPer90',
-        label: 'Goals / 90',
-        category: 'Attacking',
-        max: 1.2,
-        decimals: 2
-      },
-      {
-        key: 'xGPer90',
-        label: 'xG / 90',
-        category: 'Attacking',
-        max: 0.7,
-        decimals: 2
-      },
-      {
-        key: 'xAPer90',
-        label: 'xA / 90',
-        category: 'Attacking',
-        max: 0.25,
-        decimals: 2
-      },
+      { key: 'goalsPer90', label: 'Goals / 90', category: 'Attacking', max: 0.8, decimals: 2 },
+      { key: 'xGPer90', label: 'xG / 90', category: 'Attacking', max: 0.6, decimals: 2 },
+      { key: 'xAPer90', label: 'xA / 90', category: 'Attacking', max: 0.3, decimals: 2 },
 
       // Defending
-      {
-        key: 'tacklesPer90',
-        label: 'Tackles / 90',
-        category: 'Defending',
-        max: 5,
-        decimals: 2
-      },
-      {
-        key: 'interceptionsPer90',
-        label: 'Interceptions / 90',
-        category: 'Defending',
-        max: 3.5,
-        decimals: 2
-      },
-      {
-        key: 'ballRecoveriesPer90',
-        label: 'Ball recoveries / 90',
-        category: 'Defending',
-        max: 8.5,
-        decimals: 2
-      },
+      { key: 'tacklesPer90', label: 'Tackles / 90', category: 'Defending', max: 3.5, decimals: 2 },
+      { key: 'interceptionsPer90', label: 'Interceptions / 90', category: 'Defending', max: 2.5, decimals: 2 },
+      { key: 'ballRecoveriesPer90', label: 'Ball recoveries / 90', category: 'Defending', max: 6.5, decimals: 2 },
 
       // Ball progression
-      {
-        key: 'passesPer90',
-        label: 'Passes / 90',
-        category: 'Ball progression',
-        max: 95,
-        decimals: 2
-      },
-      {
-        key: 'passCompletionPct',
-        label: 'Pass completion %',
-        category: 'Ball progression',
-        max: 100,
-        decimals: 1,
-        suffix: '%'
-      },
-      {
-        key: 'progressiveCarriesPer90',
-        label: 'Progressive carries / 90',
-        category: 'Ball progression',
-        max: 10,
-        decimals: 2
-      }
+      { key: 'passesPer90', label: 'Passes / 90', category: 'Ball progression', max: 80, decimals: 2 },
+      { key: 'passCompletionPct', label: 'Pass completion %', category: 'Ball progression', max: 100, decimals: 1, suffix: '%' },
+      { key: 'progressiveCarriesPer90', label: 'Progressive carries / 90', category: 'Ball progression', max: 8.5, decimals: 2 }
     ];
 
     function makeTrace(player) {

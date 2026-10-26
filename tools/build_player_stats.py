@@ -9,7 +9,13 @@ RAW_DIR = Path.home() / "soccer-data" / "raw"
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_FILE = PROJECT_DIR / "data" / "player_stats.json"
 
-MATCH_IDS = [3857276, 3857271, 3857296, 3857274]
+
+MATCH_IDS = sorted(
+    int(path.stem)
+    for path in (RAW_DIR / "events").glob("*.json")
+    if path.stem.isdigit()
+)
+
 
 # Provisional progressive-carry threshold in StatsBomb pitch units.
 # We will validate the coordinate direction before relying on this metric.
@@ -39,6 +45,7 @@ def make_player(player_id, name, team_id, team_name):
         "teamId": team_id,
         "team": team_name,
         "position": "Unknown",
+        "positionMinutes": {},
         "minutes": 0,
         "goals": 0,
         "assists": 0,
@@ -72,6 +79,7 @@ for match_id in MATCH_IDS:
 
     match_end_seconds = max(half_end_times) if half_end_times else None
 
+
     # Register players and estimate their minutes from lineup intervals.
     for team in lineups:
         for entry in team["lineup"]:
@@ -87,8 +95,6 @@ for match_id in MATCH_IDS:
                 )
 
             record = players[key]
-            longest_position = None
-            longest_duration = -1
 
             for interval in entry.get("positions", []):
                 start = parse_clock(interval.get("from"))
@@ -101,14 +107,18 @@ for match_id in MATCH_IDS:
 
                 if start is not None and end is not None and end >= start:
                     duration = end - start
-                    record["minutes"] += duration / 60
+                    minutes_in_interval = duration / 60
 
-                    if duration > longest_duration:
-                        longest_duration = duration
-                        longest_position = interval.get("position")
+                    record["minutes"] += minutes_in_interval
 
-            if longest_position:
-                record["position"] = longest_position
+                    position_name = interval.get("position")
+                    if position_name:
+                        position_minutes = record["positionMinutes"]
+                        position_minutes[position_name] = (
+                            position_minutes.get(position_name, 0)
+                            + minutes_in_interval
+                        )
+
 
     # Index events so shots can be linked to the passes that created them.
     events_by_id = {event["id"]: event for event in events}
@@ -116,16 +126,24 @@ for match_id in MATCH_IDS:
     key_pass_ids = set()
 
     for event in events:
+        # Exclude penalty-shootout events.
+        if event.get("period") == 5:
+            continue
+
         if event.get("type", {}).get("name") == "Shot":
             key_pass_id = event.get("shot", {}).get("key_pass_id")
             if key_pass_id:
                 key_pass_ids.add(key_pass_id)
 
-    # Count actions and derive attacking, defending, and progression metrics.
+
+        # Count actions and derive attacking, defending, and progression metrics.
     for event in events:
-        player_info = event.get("player")
-        if not player_info:
+        # Exclude penalty-shootout events.
+        if event.get("period") == 5:
             continue
+            player_info = event.get("player")
+            if not player_info:
+                continue
 
         player_id = str(player_info["id"])
 
@@ -215,6 +233,20 @@ for match_id in MATCH_IDS:
 
 # Prepare the compact output for the website.
 output_players = []
+
+
+# Assign each player's primary position across the tournament.
+for player in players.values():
+    position_minutes = player.pop("positionMinutes", {})
+
+    if position_minutes:
+        player["position"] = max(
+            position_minutes,
+            key=position_minutes.get,
+        )
+    else:
+        player["position"] = "Unknown"
+
 
 for player in players.values():
     minutes = player["minutes"]
