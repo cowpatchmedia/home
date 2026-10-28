@@ -17,8 +17,7 @@ MATCH_IDS = sorted(
 )
 
 
-# Provisional progressive-carry threshold in StatsBomb pitch units.
-# We will validate the coordinate direction before relying on this metric.
+# Custom proxy threshold; this is not a standardized progressive-carry definition.
 PROGRESSIVE_CARRY_DISTANCE = 10
 
 
@@ -26,23 +25,6 @@ def read_json(path):
     """Read a JSON file and return its contents."""
     with path.open(encoding="utf-8") as file:
         return json.load(file)
-
-
-def parse_clock(clock):
-    """Convert a time such as '64:10' into seconds."""
-    if not clock:
-        return None
-
-    minutes, seconds = clock.split(":")
-    return int(minutes) * 60 + int(seconds)
-
-
-def parse_event_timestamp(timestamp):
-    """Convert an event timestamp such as '00:40:32.571' into seconds."""
-    if not timestamp:
-        return None
-    hours, minutes, seconds = timestamp.split(":")
-    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
 def calculate_minutes_from_events(events):
@@ -117,6 +99,24 @@ def calculate_minutes_from_events(events):
                 active_players.add(incoming_id)
                 start_times[incoming_id] = elapsed_seconds
 
+        elif event_type == "Foul Committed":
+            card_name = event.get("foul_committed", {}).get(
+                "card", {}
+            ).get("name")
+            player_id = event.get("player", {}).get("id")
+
+            if (
+                card_name in ("Red Card", "Second Yellow")
+                and player_id is not None
+            ):
+                player_id = str(player_id)
+
+                if player_id in active_players:
+                    duration = elapsed_seconds - start_times[player_id]
+                    minutes_by_player[player_id] += max(0, duration) / 60
+                    active_players.remove(player_id)
+                    start_times.pop(player_id, None)
+
     # Players still on the pitch play until the final whistle.
     for player_id in active_players:
         duration = match_end_seconds - start_times[player_id]
@@ -134,7 +134,6 @@ def make_player(player_id, name, team_id, team_name):
         "teamId": team_id,
         "team": team_name,
         "position": "Unknown",
-        "positionMinutes": {},
         "minutes": 0,
         "goals": 0,
         "assists": 0,
@@ -151,71 +150,12 @@ def make_player(player_id, name, team_id, team_name):
     }
 
 
-players = {}
-
-for match_id in MATCH_IDS:
-    print(f"Processing match {match_id}...")
-
-    events = read_json(RAW_DIR / "events" / f"{match_id}.json")
-    lineups = read_json(RAW_DIR / "lineups" / f"{match_id}.json")
-
-    # Estimate the match's final elapsed time from Half End events.
-    half_end_times = [
-        event.get("minute", 0) * 60 + event.get("second", 0)
-        for event in events
-        if event.get("type", {}).get("name") == "Half End"
-    ]
-
-    match_end_seconds = max(half_end_times) if half_end_times else None
-
-
-    # Register players and estimate their minutes from lineup intervals.
-    for team in lineups:
-        for entry in team["lineup"]:
-            player_id = entry["player_id"]
-            key = str(player_id)
-
-            if key not in players:
-                players[key] = make_player(
-                    player_id,
-                    entry["player_name"],
-                    team["team_id"],
-                    team["team_name"],
-                )
-
-            record = players[key]
-
-            for interval in entry.get("positions", []):
-                start = parse_clock(interval.get("from"))
-                end = parse_clock(interval.get("to"))
-
-                # A missing end time means the player remained on the
-                # field until the match ended.
-                if end is None:
-                    end = match_end_seconds
-
-                if start is not None and end is not None and end >= start:
-                    duration = end - start
-                    minutes_in_interval = duration / 60
-
-                    record["minutes"] += minutes_in_interval
-
-                    position_name = interval.get("position")
-                    if position_name:
-                        position_minutes = record["positionMinutes"]
-                        position_minutes[position_name] = (
-                            position_minutes.get(position_name, 0)
-                            + minutes_in_interval
-                        )
-
-
-    # Index events so shots can be linked to the passes that created them.
+def accumulate_event_stats(events, players):
+    """Add match event metrics to player records."""
     events_by_id = {event["id"]: event for event in events}
-
     key_pass_ids = set()
 
     for event in events:
-        # Exclude penalty-shootout events.
         if event.get("period") == 5:
             continue
 
@@ -224,15 +164,13 @@ for match_id in MATCH_IDS:
             if key_pass_id:
                 key_pass_ids.add(key_pass_id)
 
-
-        # Count actions and derive attacking, defending, and progression metrics.
     for event in events:
-        # Exclude penalty-shootout events.
         if event.get("period") == 5:
             continue
-            player_info = event.get("player")
-            if not player_info:
-                continue
+
+        player_info = event.get("player")
+        if not player_info:
+            continue
 
         player_id = str(player_info["id"])
 
@@ -251,10 +189,8 @@ for match_id in MATCH_IDS:
         if event_type == "Pass":
             record["passes"] += 1
 
-            # In StatsBomb data, a pass without an outcome is normally
-            # completed; an outcome records an unsuccessful result.
+            # A pass without an unsuccessful outcome is counted as completed.
             pass_data = event.get("pass", {})
-
             if pass_data.get("outcome") is None:
                 record["completedPasses"] += 1
 
@@ -271,15 +207,16 @@ for match_id in MATCH_IDS:
             key_pass_id = shot.get("key_pass_id")
             assist_event = events_by_id.get(key_pass_id)
 
-            # Approximate xA by crediting the linked passer with the
-            # xG value of the shot their pass created.
             if assist_event and assist_event.get("player"):
                 assister_id = str(assist_event["player"]["id"])
 
                 if assister_id in players:
                     players[assister_id]["xA"] += shot_xg
 
-                    if shot.get("outcome", {}).get("name") == "Goal":
+                    if (
+                        shot.get("outcome", {}).get("name") == "Goal"
+                        and assist_event.get("pass", {}).get("goal_assist")
+                    ):
                         players[assister_id]["assists"] += 1
 
             if shot.get("outcome", {}).get("name") == "Goal":
@@ -287,7 +224,6 @@ for match_id in MATCH_IDS:
 
         elif event_type == "Duel":
             duel_type = event.get("duel", {}).get("type", {}).get("name")
-
             if duel_type == "Tackle":
                 record["tackles"] += 1
 
@@ -296,8 +232,6 @@ for match_id in MATCH_IDS:
 
         elif event_type == "Ball Recovery":
             recovery = event.get("ball_recovery", {})
-
-            # Exclude explicitly failed recovery attempts.
             if not recovery.get("recovery_failure", False):
                 record["ballRecoveries"] += 1
 
@@ -311,30 +245,52 @@ for match_id in MATCH_IDS:
                 and len(start_location) >= 2
                 and len(end_location) >= 2
             ):
-                # PROVISIONAL: count carries whose end x-coordinate
-                # advances at least the chosen threshold.
-                # Confirm the coordinate direction before relying on this.
+                # This is a custom proxy using the attacking-direction x-axis.
                 forward_distance = end_location[0] - start_location[0]
-
                 if forward_distance >= PROGRESSIVE_CARRY_DISTANCE:
                     record["progressiveCarries"] += 1
 
 
+players = {}
+
+for match_id in MATCH_IDS:
+    print(f"Processing match {match_id}...")
+
+    events = read_json(RAW_DIR / "events" / f"{match_id}.json")
+    lineups = read_json(RAW_DIR / "lineups" / f"{match_id}.json")
+
+    minutes_by_player = calculate_minutes_from_events(events)
+
+    # Register squad players, then use event timelines for playing minutes.
+    for team in lineups:
+        for entry in team["lineup"]:
+            player_id = entry["player_id"]
+            key = str(player_id)
+
+            if key not in players:
+                players[key] = make_player(
+                    player_id,
+                    entry["player_name"],
+                    team["team_id"],
+                    team["team_name"],
+                )
+
+            record = players[key]
+            record["minutes"] += minutes_by_player.get(key, 0)
+
+            # Position intervals can overlap after tactical shifts; keep the
+            # first recorded role instead of treating them as playing time.
+            if record["position"] == "Unknown":
+                positions = entry.get("positions", [])
+                if positions and positions[0].get("position"):
+                    record["position"] = positions[0]["position"]
+
+
+    accumulate_event_stats(events, players)
+
+
 # Prepare the compact output for the website.
 output_players = []
-
-
-# Assign each player's primary position across the tournament.
-for player in players.values():
-    position_minutes = player.pop("positionMinutes", {})
-
-    if position_minutes:
-        player["position"] = max(
-            position_minutes,
-            key=position_minutes.get,
-        )
-    else:
-        player["position"] = "Unknown"
 
 
 for player in players.values():
@@ -395,11 +351,11 @@ output = {
     "matchesProcessed": len(MATCH_IDS),
     "metricNotes": {
         "minutes": (
-            "Summed lineup position intervals; estimates based on "
-            "StatsBomb event timelines."
+            "Calculated from starting lineups, substitutions, dismissals, "
+            "and the final whistle in StatsBomb event timelines."
         ),
         "goals": "Goal outcomes on shot events; own goals excluded.",
-        "assists": "Goal shots with a linked key pass.",
+        "assists": "Goal shots linked to a pass marked goal_assist by StatsBomb.",
         "xG": "Sum of StatsBomb shot-level expected goals.",
         "xA": (
             "Approximation: sum of linked shot xG credited to the "
@@ -419,9 +375,9 @@ output = {
             "Ball Recovery events excluding explicitly marked failures."
         ),
         "progressiveCarries": (
-            "Provisional: carries whose end x-coordinate advances at least "
-            f"{PROGRESSIVE_CARRY_DISTANCE} pitch units. Validate attacking "
-            "direction before analysis."
+            "Custom proxy: carries whose x-coordinate advances at least "
+            f"{PROGRESSIVE_CARRY_DISTANCE} pitch units in the attacking "
+            "direction; this is not a standardized progressive-carry definition."
         ),
     },
     "players": output_players,

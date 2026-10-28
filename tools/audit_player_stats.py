@@ -17,7 +17,11 @@ metrics = [
     ("interceptionsPer90", "interceptions", "Interceptions / 90"),
     ("ballRecoveriesPer90", "ballRecoveries", "Ball recoveries / 90"),
     ("passesPer90", "passes", "Passes / 90"),
-    ("progressiveCarriesPer90", "progressiveCarries", "Progressive carries / 90"),
+    (
+        "progressiveCarriesPer90",
+        "progressiveCarries",
+        "Carries advancing 10+ units / 90",
+    ),
 ]
 
 def is_goalkeeper(player):

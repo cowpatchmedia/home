@@ -191,7 +191,7 @@
       // Ball progression
       { key: 'passesPer90', label: 'Passes / 90', category: 'Ball progression', max: 80, decimals: 2 },
       { key: 'passCompletionPct', label: 'Pass completion %', category: 'Ball progression', max: 100, decimals: 1, suffix: '%' },
-      { key: 'progressiveCarriesPer90', label: 'Progressive carries / 90', category: 'Ball progression', max: 8.5, decimals: 2 }
+      { key: 'progressiveCarriesPer90', label: 'Carries advancing 10+ units / 90', category: 'Ball progression', max: 8.5, decimals: 2 }
     ];
 
     function makeTrace(player) {
