@@ -1,26 +1,6 @@
-import ast
 import unittest
-from pathlib import Path
 
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-BUILDER_FILE = PROJECT_DIR / "tools" / "build_player_stats.py"
-
-
-def load_stats_functions():
-    tree = ast.parse(BUILDER_FILE.read_text(encoding="utf-8"))
-    nodes = [
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name in ("make_player", "accumulate_event_stats")
-    ]
-    namespace = {"PROGRESSIVE_CARRY_DISTANCE": 10}
-    module = ast.Module(body=nodes, type_ignores=[])
-    exec(compile(module, str(BUILDER_FILE), "exec"), namespace)
-    return namespace["make_player"], namespace["accumulate_event_stats"]
-
-
-make_player, accumulate_event_stats = load_stats_functions()
+from tools.build_player_stats import accumulate_event_stats, make_player
 
 
 def event(event_id, event_type, player=None, period=1, **fields):

@@ -10,13 +10,6 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_FILE = PROJECT_DIR / "data" / "player_stats.json"
 
 
-MATCH_IDS = sorted(
-    int(path.stem)
-    for path in (RAW_DIR / "events").glob("*.json")
-    if path.stem.isdigit()
-)
-
-
 # Custom proxy threshold; this is not a standardized progressive-carry definition.
 PROGRESSIVE_CARRY_DISTANCE = 10
 
@@ -251,141 +244,155 @@ def accumulate_event_stats(events, players):
                     record["progressiveCarries"] += 1
 
 
-players = {}
+def build_player_stats(raw_dir=RAW_DIR, match_ids=None):
+    """Build player stats from all matches or a selected set of match IDs."""
+    if match_ids is None:
+        match_ids = [
+            int(path.stem)
+            for path in (raw_dir / "events").glob("*.json")
+            if path.stem.isdigit()
+        ]
 
-for match_id in MATCH_IDS:
-    print(f"Processing match {match_id}...")
+    match_ids = sorted(match_ids)
+    players = {}
 
-    events = read_json(RAW_DIR / "events" / f"{match_id}.json")
-    lineups = read_json(RAW_DIR / "lineups" / f"{match_id}.json")
+    for match_id in match_ids:
+        print(f"Processing match {match_id}...")
 
-    minutes_by_player = calculate_minutes_from_events(events)
+        events = read_json(raw_dir / "events" / f"{match_id}.json")
+        lineups = read_json(raw_dir / "lineups" / f"{match_id}.json")
+        minutes_by_player = calculate_minutes_from_events(events)
 
-    # Register squad players, then use event timelines for playing minutes.
-    for team in lineups:
-        for entry in team["lineup"]:
-            player_id = entry["player_id"]
-            key = str(player_id)
+        # Register squad players, then use event timelines for playing minutes.
+        for team in lineups:
+            for entry in team["lineup"]:
+                player_id = entry["player_id"]
+                key = str(player_id)
 
-            if key not in players:
-                players[key] = make_player(
-                    player_id,
-                    entry["player_name"],
-                    team["team_id"],
-                    team["team_name"],
-                )
+                if key not in players:
+                    players[key] = make_player(
+                        player_id,
+                        entry["player_name"],
+                        team["team_id"],
+                        team["team_name"],
+                    )
 
-            record = players[key]
-            record["minutes"] += minutes_by_player.get(key, 0)
+                record = players[key]
+                record["minutes"] += minutes_by_player.get(key, 0)
 
-            # Position intervals can overlap after tactical shifts; keep the
-            # first recorded role instead of treating them as playing time.
-            if record["position"] == "Unknown":
-                positions = entry.get("positions", [])
-                if positions and positions[0].get("position"):
-                    record["position"] = positions[0]["position"]
+                # Position intervals can overlap after tactical shifts; keep
+                # the first recorded role instead of using them for minutes.
+                if record["position"] == "Unknown":
+                    positions = entry.get("positions", [])
+                    if positions and positions[0].get("position"):
+                        record["position"] = positions[0]["position"]
 
+        accumulate_event_stats(events, players)
 
-    accumulate_event_stats(events, players)
+    output_players = []
 
+    for player in players.values():
+        minutes = player["minutes"]
 
-# Prepare the compact output for the website.
-output_players = []
+        # Calculate rates using full-precision minutes before display rounding.
+        count_metrics = [
+            "goals",
+            "assists",
+            "shots",
+            "passes",
+            "completedPasses",
+            "keyPasses",
+            "tackles",
+            "interceptions",
+            "ballRecoveries",
+            "progressiveCarries",
+        ]
 
+        for metric in count_metrics:
+            rate_name = metric + "Per90"
+            player[rate_name] = (
+                round(player[metric] * 90 / minutes, 3)
+                if minutes > 0 else 0
+            )
 
-for player in players.values():
-    minutes = player["minutes"]
-
-    # Calculate rates using full-precision minutes before rounding display.
-    count_metrics = [
-        "goals",
-        "assists",
-        "shots",
-        "passes",
-        "completedPasses",
-        "keyPasses",
-        "tackles",
-        "interceptions",
-        "ballRecoveries",
-        "progressiveCarries",
-    ]
-
-    for metric in count_metrics:
-        rate_name = metric + "Per90"
-        player[rate_name] = (
-            round(player[metric] * 90 / minutes, 3)
+        player["xGPer90"] = (
+            round(player["xG"] * 90 / minutes, 3)
+            if minutes > 0 else 0
+        )
+        player["xAPer90"] = (
+            round(player["xA"] * 90 / minutes, 3)
             if minutes > 0 else 0
         )
 
-    player["xGPer90"] = (
-        round(player["xG"] * 90 / minutes, 3)
-        if minutes > 0 else 0
-    )
+        # Completion percentage is a percentage, not a per-90 rate.
+        player["passCompletionPct"] = (
+            round(player["completedPasses"] / player["passes"] * 100, 1)
+            if player["passes"] > 0 else 0
+        )
 
-    player["xAPer90"] = (
-        round(player["xA"] * 90 / minutes, 3)
-        if minutes > 0 else 0
-    )
+        player["minutes"] = round(minutes, 2)
+        player["xG"] = round(player["xG"], 3)
+        player["xA"] = round(player["xA"], 3)
+        output_players.append(player)
 
-    # Completion percentage is a percentage, not a per-90 rate.
-    player["passCompletionPct"] = (
-        round(player["completedPasses"] / player["passes"] * 100, 1)
-        if player["passes"] > 0 else 0
-    )
+    output_players.sort(key=lambda player: player["name"].lower())
 
-    # Round display values only after calculating the rates.
-    player["minutes"] = round(minutes, 2)
-    player["xG"] = round(player["xG"], 3)
-    player["xA"] = round(player["xA"], 3)
+    return {
+        "source": "StatsBomb Open Data",
+        "competition": "FIFA World Cup",
+        "season": "2022",
+        "matchesProcessed": len(match_ids),
+        "metricNotes": {
+            "minutes": (
+                "Calculated from starting lineups, substitutions, dismissals, "
+                "and the final whistle in StatsBomb event timelines."
+            ),
+            "goals": "Goal outcomes on shot events; own goals excluded.",
+            "assists": (
+                "Goal shots linked to a pass marked goal_assist by StatsBomb."
+            ),
+            "xG": "Sum of StatsBomb shot-level expected goals.",
+            "xA": (
+                "Approximation: sum of linked shot xG credited to the "
+                "player making the key pass."
+            ),
+            "passes": "All pass events, including unsuccessful attempts.",
+            "completedPasses": (
+                "Pass events without a recorded unsuccessful outcome."
+            ),
+            "passCompletionPct": (
+                "Completed passes divided by all pass attempts, "
+                "multiplied by 100."
+            ),
+            "keyPasses": "Passes linked to a shot event.",
+            "tackles": "Tackle-type duel events, including attempts.",
+            "interceptions": "Interception events.",
+            "ballRecoveries": (
+                "Ball Recovery events excluding explicitly marked failures."
+            ),
+            "progressiveCarries": (
+                "Custom proxy: carries whose x-coordinate advances at least "
+                f"{PROGRESSIVE_CARRY_DISTANCE} pitch units in the attacking "
+                "direction; this is not a standardized progressive-carry "
+                "definition."
+            ),
+        },
+        "players": output_players,
+    }
 
-    output_players.append(player)
 
-output_players.sort(key=lambda player: player["name"].lower())
+def main():
+    """Build player stats and write the website's JSON data file."""
+    output = build_player_stats()
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with OUTPUT_FILE.open("w", encoding="utf-8") as file:
+        json.dump(output, file, ensure_ascii=False, indent=2)
 
-output = {
-    "source": "StatsBomb Open Data",
-    "competition": "FIFA World Cup",
-    "season": "2022",
-    "matchesProcessed": len(MATCH_IDS),
-    "metricNotes": {
-        "minutes": (
-            "Calculated from starting lineups, substitutions, dismissals, "
-            "and the final whistle in StatsBomb event timelines."
-        ),
-        "goals": "Goal outcomes on shot events; own goals excluded.",
-        "assists": "Goal shots linked to a pass marked goal_assist by StatsBomb.",
-        "xG": "Sum of StatsBomb shot-level expected goals.",
-        "xA": (
-            "Approximation: sum of linked shot xG credited to the "
-            "player making the key pass."
-        ),
-        "passes": "All pass events, including unsuccessful attempts.",
-        "completedPasses": (
-            "Pass events without a recorded unsuccessful outcome."
-        ),
-        "passCompletionPct": (
-            "Completed passes divided by all pass attempts, multiplied by 100."
-        ),
-        "keyPasses": "Passes linked to a shot event.",
-        "tackles": "Tackle-type duel events, including attempts.",
-        "interceptions": "Interception events.",
-        "ballRecoveries": (
-            "Ball Recovery events excluding explicitly marked failures."
-        ),
-        "progressiveCarries": (
-            "Custom proxy: carries whose x-coordinate advances at least "
-            f"{PROGRESSIVE_CARRY_DISTANCE} pitch units in the attacking "
-            "direction; this is not a standardized progressive-carry definition."
-        ),
-    },
-    "players": output_players,
-}
+    print(f"\nFinished! Processed {output['matchesProcessed']} matches.")
+    print(f"Players found: {len(output['players'])}")
+    print(f"Saved results to: {OUTPUT_FILE}")
 
-with OUTPUT_FILE.open("w", encoding="utf-8") as file:
-    json.dump(output, file, ensure_ascii=False, indent=2)
 
-print(f"\nFinished! Processed {len(MATCH_IDS)} matches.")
-print(f"Players found: {len(output_players)}")
-print(f"Saved results to: {OUTPUT_FILE}")
+if __name__ == "__main__":
+    main()

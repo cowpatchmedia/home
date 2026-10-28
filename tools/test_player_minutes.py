@@ -1,27 +1,6 @@
-import ast
 import unittest
-from pathlib import Path
 
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-BUILDER_FILE = PROJECT_DIR / "tools" / "build_player_stats.py"
-
-
-def load_minutes_function():
-    source = BUILDER_FILE.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    function = next(
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "calculate_minutes_from_events"
-    )
-    namespace = {}
-    module = ast.Module(body=[function], type_ignores=[])
-    exec(compile(module, str(BUILDER_FILE), "exec"), namespace)
-    return namespace["calculate_minutes_from_events"]
-
-
-calculate_minutes = load_minutes_function()
+from tools.build_player_stats import calculate_minutes_from_events
 
 
 def event(event_type, minute, second=0, period=1, **fields):
@@ -66,7 +45,7 @@ class CalculateMinutesTests(unittest.TestCase):
             ),
         ]
 
-        minutes = calculate_minutes(events)
+        minutes = calculate_minutes_from_events(events)
 
         self.assertAlmostEqual(minutes["1"], 30.25)
         self.assertAlmostEqual(minutes["2"], 124 + 7 / 60)
@@ -93,7 +72,7 @@ class CalculateMinutesTests(unittest.TestCase):
                     event("Half End", 98, period=2),
                 ]
 
-                minutes = calculate_minutes(events)
+                minutes = calculate_minutes_from_events(events)
 
                 self.assertAlmostEqual(minutes["1"], 60.5)
 
@@ -106,7 +85,7 @@ class CalculateMinutesTests(unittest.TestCase):
             )
         ]
 
-        self.assertEqual(calculate_minutes(events), {})
+        self.assertEqual(calculate_minutes_from_events(events), {})
 
 
 if __name__ == "__main__":
