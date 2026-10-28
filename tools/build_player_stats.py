@@ -37,6 +37,95 @@ def parse_clock(clock):
     return int(minutes) * 60 + int(seconds)
 
 
+def parse_event_timestamp(timestamp):
+    """Convert an event timestamp such as '00:40:32.571' into seconds."""
+    if not timestamp:
+        return None
+    hours, minutes, seconds = timestamp.split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+def calculate_minutes_from_events(events):
+    """Calculate player minutes from starting lineups and substitutions."""
+    minutes_by_player = {}
+    active_players = set()
+    start_times = {}
+
+    # Determine the match's final elapsed time, excluding the shootout.
+    half_end_times = [
+        event.get("minute", 0) * 60 + event.get("second", 0)
+        for event in events
+        if event.get("type", {}).get("name") == "Half End"
+        and event.get("period") in (1, 2, 3, 4)
+    ]
+
+    if not half_end_times:
+        return minutes_by_player
+
+    match_end_seconds = max(half_end_times)
+
+    # Process lineup and substitution events in chronological order.
+    for event in sorted(
+        events,
+        key=lambda e: (
+            e.get("minute", 0),
+            e.get("second", 0),
+            e.get("index", 0),
+        ),
+    ):
+        if event.get("period") == 5:
+            continue
+
+        event_type = event.get("type", {}).get("name")
+        elapsed_seconds = (
+            event.get("minute", 0) * 60 + event.get("second", 0)
+        )
+
+        if event_type == "Starting XI":
+            lineup = event.get("tactics", {}).get("lineup", [])
+
+            for entry in lineup:
+                player_info = entry.get("player", {})
+                player_id = player_info.get("id")
+
+                if player_id is not None:
+                    player_id = str(player_id)
+                    minutes_by_player.setdefault(player_id, 0.0)
+                    active_players.add(player_id)
+                    start_times[player_id] = 0
+
+        elif event_type == "Substitution":
+            outgoing = event.get("player", {})
+            substitution = event.get("substitution", {})
+            incoming = substitution.get("replacement", {})
+
+            outgoing_id = outgoing.get("id")
+            incoming_id = incoming.get("id")
+
+            if outgoing_id is not None:
+                outgoing_id = str(outgoing_id)
+
+                if outgoing_id in active_players:
+                    duration = elapsed_seconds - start_times[outgoing_id]
+                    minutes_by_player[outgoing_id] += max(0, duration) / 60
+                    active_players.remove(outgoing_id)
+                    start_times.pop(outgoing_id, None)
+
+            if incoming_id is not None:
+                incoming_id = str(incoming_id)
+                minutes_by_player.setdefault(incoming_id, 0.0)
+                active_players.add(incoming_id)
+                start_times[incoming_id] = elapsed_seconds
+
+    # Players still on the pitch play until the final whistle.
+    for player_id in active_players:
+        duration = match_end_seconds - start_times[player_id]
+        minutes_by_player[player_id] += max(0, duration) / 60
+
+    return minutes_by_player
+
+
+
 def make_player(player_id, name, team_id, team_name):
     """Create one player's statistics record."""
     return {
